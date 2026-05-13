@@ -26,6 +26,15 @@ def parse_args():
     """解析命令行参数"""
     parser = argparse.ArgumentParser(description='FrontDoor 因果链训练')
 
+    # 模型选择
+    parser.add_argument(
+        '--model',
+        type=str,
+        default='clip',
+        choices=['clip', 'frontdoor'],
+        help='选择要训练的模型 (clip/frontdoor)'
+    )
+
     parser.add_argument(
         '--batch-size',
         type=int,

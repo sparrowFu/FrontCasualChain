@@ -49,23 +49,25 @@ class MSCOCOCaptionsDataset(Dataset):
         self.ids = dataframe["original_index"].values
         self.image_path = image_path
 
-        # 编码所有 caption
-        all_captions = []
-        for caption_list in self.captions:
-            all_captions.extend(caption_list)
+        # 1. 展平的 caption 文本列表
+        self.flat_captions = []
+        
+        # 2. 每条 caption 对应的图片索引
+        self.caption_to_image_idx = []
+        
+        # 一次遍历构建映射
+        for img_idx, caption_list in enumerate(self.captions):
+            for caption in caption_list:
+                self.flat_captions.append(caption)
+                self.caption_to_image_idx.append(img_idx)
 
         self.encoded_captions = tokenizer(
-            all_captions,
+            self.flat_captions,
             padding=True,
             truncation=True,
             max_length=CFG.max_length
         )
         self.transforms = transforms
-
-        # 为每条 caption 记录对应的图片索引
-        self.caption_to_image_idx = []
-        for i, caption_list in enumerate(self.captions):
-            self.caption_to_image_idx.extend([i] * len(caption_list))
 
     def __getitem__(self, idx):
         # 获取编码的文本
@@ -87,19 +89,23 @@ class MSCOCOCaptionsDataset(Dataset):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = self.transforms(image=image)['image']
         item['image'] = torch.tensor(image).permute(2, 0, 1).float()
+        
+        # 4. 直接获取 caption（无需索引计算）
+        item['caption'] = self.flat_captions[idx]  # 直接获取
+        item['id'] = torch.tensor(self.ids[img_idx], dtype=torch.long)
 
-        # 获取原始 caption（使用 idx 对应的单条 caption）
-        # 重新获取这条 caption
-        caption_idx = idx
-        current_img_idx = 0
-        for caption_list in self.captions:
-            for _ in caption_list:
-                if current_img_idx == caption_idx:
-                    item['caption'] = caption_list[caption_idx - sum(len(self.captions[i]) for i in range(img_idx))]
-                    item['id'] = torch.tensor(self.ids[img_idx], dtype=torch.long)
-                    return item
-                current_img_idx += 1
-            img_idx += 1
+        # # 获取原始 caption（使用 idx 对应的单条 caption）
+        # # 重新获取这条 caption
+        # caption_idx = idx
+        # current_img_idx = 0
+        # for caption_list in self.captions:
+        #     for _ in caption_list:
+        #         if current_img_idx == caption_idx:
+        #             item['caption'] = caption_list[caption_idx - sum(len(self.captions[i]) for i in range(img_idx))]
+        #             item['id'] = torch.tensor(self.ids[img_idx], dtype=torch.long)
+        #             return item
+        #         current_img_idx += 1
+        #     img_idx += 1
 
         return item
 

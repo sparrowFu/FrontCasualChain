@@ -59,12 +59,8 @@ def visualize_multi_modal_space(text_features, image_features,
     # 如果image维度更高，使用池化将其降到text维度
     if image_dim > text_dim:
         # 将每个image特征从2048维池化到768维
-        image_feats_aligned = np.zeros((len(image_features), text_dim))
-        for i, img_feat in enumerate(image_feats):
-            img_feat_tensor = torch.tensor(img_feat).float().unsqueeze(0)  # [1, 2048]
-            img_feat_pooled = F.adaptive_avg_pool1d(img_feat_tensor, text_dim).squeeze(0).numpy()  # [768]
-            image_feats_aligned[i] = img_feat_pooled
-        text_feats_aligned = text_feats
+
+
     # 如果text维度更高，使用池化将text降到image维度
     elif text_dim > image_dim:
         text_feats_aligned = np.zeros((len(text_features), image_dim))

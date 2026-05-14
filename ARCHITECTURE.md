@@ -27,15 +27,15 @@
 │  │              各模型实现目录                         │      │
 │  ├────────────────────────────────────────────────────┤      │
 │  │                                                     │      │
-│  │  ┌─────────────┐  ┌──────────────┐                │      │
-│  │  │    clip/    │  │  frontdoor/  │                │      │
-│  │  │  CLIP模型   │  │  因果链模型   │                │      │
-│  │  │             │  │              │                │      │
-│  │  │ ├config.py  │  │ ├config.py   │                │      │
-│  │  │ ├model.py   │  │ ├model.py    │                │      │
-│  │  │ ├train.py   │  │ ├loss.py     │                │      │
-│  │  │ └evaluate.py│  │ ├train.py    │                │      │
-│  │  └─────────────┘  │ └evaluate.py │                │      │
+│  │  ┌─────────────┐  ┌──────────────┐  ┌──────────┐  │      │
+│  │  │    clip/    │  │  frontdoor/  │  │ template/│  │      │
+│  │  │  CLIP模型   │  │  因果链模型   │  │ 模型模板 │  │      │
+│  │  │             │  │              │  │          │  │      │
+│  │  │ ├config.py  │  │ ├config.py   │  │ ├config  │  │      │
+│  │  │ ├model.py   │  │ ├model.py    │  │ ├model   │  │      │
+│  │  │ ├train.py   │  │ ├loss.py     │  │ ├train   │  │      │
+│  │  │ └evaluate.py│  │ ├train.py    │  │ └evaluate│  │      │
+│  │  └─────────────┘  │ └evaluate.py │  └──────────┘  │      │
 │  │                   └──────────────┘                │      │
 │  └─────────────────────────────────────────────────────┘      │
 │                   │ 依赖                                     │
@@ -48,7 +48,7 @@
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐ │     │
 │  │  │  config.py  │  │  dataset.py │  │  metrics.py │ │     │
 │  │  │  BaseConfig │  │ MSCOCO数据集 │  │ AvgMeter    │ │     │
-│  │  │             │  │             │  │ get_lr      │ │     │
+│  │  │  config.ini │  │             │  │ get_lr      │ │     │
 │  │  └─────────────┘  └─────────────┘  └─────────────┘ │     │
 │  │                                                      │     │
 │  │  ┌─────────────────────────────┐                    │     │
@@ -58,6 +58,16 @@
 │  │  └─────────────────────────────┘                    │     │
 │  │                                                      │     │
 │  └─────────────────────────────────────────────────────┘     │
+│                   ▼                                          │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │                  visualization/                      │    │
+│  │              可视化分析模块                           │    │
+│  ├─────────────────────────────────────────────────────┤    │
+│  │  • causal_visualizer.py        - 因果链可视化核心    │    │
+│  │  • example.py                  - 单样本示例          │    │
+│  │  • batch_visualize.py          - 批量可视化          │    │
+│  │  • visualize_multi_modal_space.py - 空间可视化      │    │
+│  └─────────────────────────────────────────────────────┘    │
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │                        data/                        │    │
@@ -76,7 +86,7 @@
 ## 模块依赖关系
 
 ```
-train.py
+train.py / evaluate.py
     │
     ├──> models.frontdoor
     │        │
@@ -84,10 +94,20 @@ train.py
     │        └──> models.clip (编码器)
     │             └──> common (共享工具)
     │
-    └──> models.clip
+    ├──> models.clip
+    │        │
+    │        ├──> common (共享工具)
+    │        └──> transformers, timm (外部库)
+    │
+    ├──> models.template
+    │        │
+    │        └──> common (共享工具)
+    │
+    └──> visualization
              │
-             ├──> common (共享工具)
-             └──> transformers, timm (外部库)
+             ├──> models.frontdoor
+             ├──> models.clip
+             └──> matplotlib, seaborn, sklearn
 ```
 
 ## 数据流
@@ -157,13 +177,22 @@ train.py
 BaseConfig (common/config.py)
     │
     ├──> CLIPConfig (models/clip/config.py)
-    └──> FrontDoorConfig (models/frontdoor/config.py)
+    ├──> FrontDoorConfig (models/frontdoor/config.py)
+    └──> TemplateConfig (models/template/config.py)
 
 MSCOCOCaptionsDataset (common/dataset.py)
     │
     └──> 用于 MSCOCO Captions 数据集
         ├─> 从 parquet 加载元数据
         └─> 从 images/ 加载图片
+
+CausalChainVisualizer (visualization/causal_visualizer.py)
+    │
+    └──> 用于可视化因果推断过程
+        ├─> 加载 CLIP 和 FrontDoor 模型
+        ├─> 执行前向推理
+        ├─> 验证前门准则条件
+        └─> 生成可视化图表
 ```
 
 ## 数据集格式
@@ -204,7 +233,7 @@ Parquet 文件格式:
 
 ### 添加新模型
 
-参考 `models/clip/` 或 `models/frontdoor/` 目录，实现以下文件：
+参考 `models/template/` 目录作为模板，或参考 `models/clip/` 和 `models/frontdoor/` 目录，实现以下文件：
 
 - `config.py` - 模型配置（继承 `BaseConfig`）
 - `model.py` - 模型定义
@@ -228,6 +257,22 @@ class CustomLoss(nn.Module):
     def get_metrics(self, output):
         # 返回评估指标
         return metrics
+```
+
+### 扩展可视化功能
+
+参考 `visualization/causal_visualizer.py`：
+
+```python
+from visualization import CausalChainVisualizer
+
+class CustomVisualizer(CausalChainVisualizer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def custom_visualization(self, data):
+        # 自定义可视化逻辑
+        pass
 ```
 
 ## 最佳实践

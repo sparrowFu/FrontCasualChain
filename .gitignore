@@ -33,7 +33,6 @@ env/
 *~
 
 # Jupyter Notebook
-*.ipynb
 .ipynb_checkpoints/
 
 # Project specific

@@ -1,6 +1,6 @@
 # FrontdoorCausalChain
 
-基于前门准则的多模态因果链学习项目，支持图文检索、因果推断等多种任务。
+基于前门准则的多模态因果链学习项目，支持图文检索、因果推断、可视化分析等多种任务。
 
 ## 项目概述
 
@@ -8,6 +8,7 @@
 
 - **CLIP 模型**: 基于对比学习的图文检索模型
 - **FrontDoor 因果链模型**: 基于前门准则的因果推断模型
+- **Template 模型**: 新模型实现的模板框架
 
 ## 目录结构
 
@@ -15,6 +16,7 @@
 FrontdoorCausalChain/
 ├── common/                    # 共享工具和配置
 │   ├── __init__.py
+│   ├── config.ini            # 基础配置文件
 │   ├── config.py             # 基础配置类
 │   ├── dataset.py            # MSCOCO 数据集类
 │   ├── metrics.py            # 评估指标工具
@@ -28,13 +30,27 @@ FrontdoorCausalChain/
 │   │   ├── model.py          # CLIP 模型定义
 │   │   ├── train.py          # CLIP 训练脚本
 │   │   └── evaluate.py       # CLIP 评估脚本
-│   └── frontdoor/            # FrontDoor 因果链模型
+│   ├── frontdoor/            # FrontDoor 因果链模型
+│   │   ├── __init__.py
+│   │   ├── config.py         # FrontDoor 配置
+│   │   ├── model.py          # FrontDoor 模型定义
+│   │   ├── loss.py           # FrontDoor 损失函数
+│   │   ├── train.py          # FrontDoor 训练脚本
+│   │   └── evaluate.py       # FrontDoor 评估脚本
+│   └── template/             # 新模型模板
 │       ├── __init__.py
-│       ├── config.py         # FrontDoor 配置
-│       ├── model.py          # FrontDoor 模型定义
-│       ├── loss.py           # FrontDoor 损失函数
-│       ├── train.py          # FrontDoor 训练脚本
-│       └── evaluate.py       # FrontDoor 评估脚本
+│       ├── config.py         # 模板配置
+│       ├── model.py          # 模板模型定义
+│       ├── train.py          # 模板训练脚本
+│       └── evaluate.py       # 模板评估脚本
+│
+├── visualization/             # 可视化模块
+│   ├── __init__.py
+│   ├── causal_visualizer.py       # 因果链可视化核心类
+│   ├── example.py                 # 单样本可视化示例
+│   ├── batch_visualize.py         # 批量可视化脚本
+│   ├── visualize_multi_modal_space.py  # 多模态空间可视化
+│   └── README.md                  # 可视化模块文档
 │
 ├── data/                      # 数据集目录
 │   └── mscoco_captions/      # MSCOCO Captions 数据集
@@ -44,11 +60,26 @@ FrontdoorCausalChain/
 │       └── test/             # VQA 测试数据
 │
 ├── PreTrainedModels/          # 预训练模型
-│   └── distilbert_base_uncased/
+│   ├── distilbert_base_uncased/  # DistilBERT 文本编码器
+│   └── resnet50/                 # ResNet50 图像编码器
+│
+├── scripts/                   # 辅助脚本目录
 │
 ├── train.py                   # 统一训练入口
 ├── evaluate.py                # 统一评估入口
-└── results/                   # 训练结果输出
+├── check_structure.py         # 项目结构检查
+├── test_imports.py            # 导入测试
+│
+├── results/                   # 训练结果输出
+│
+├── test.ipynb                 # 测试 Notebook
+├── visualizationTest.ipynb    # 可视化测试 Notebook
+│
+├── environment.yml            # Conda 环境配置
+├── README.md                  # 项目说明（本文件）
+├── QUICKSTART.md              # 快速开始指南
+├── ARCHITECTURE.md            # 架构详细说明
+└── INDEX.md                   # 文件索引
 ```
 
 ## 数据集
@@ -101,6 +132,25 @@ python evaluate.py --model clip --query "a beautiful sunset"
 
 # 评估 FrontDoor 模型
 python evaluate.py --model frontdoor --num-samples 100
+```
+
+### 可视化分析
+
+```bash
+# 单样本因果链可视化
+python visualization/example.py \
+    --image data/mscoco_captions/images/000000000009.jpg \
+    --text "A group of people dancing in a party" \
+    --save output.png
+
+# 批量可视化
+python visualization/batch_visualize.py \
+    --image-dir data/mscoco_captions/images \
+    --output-dir results/visualizations \
+    --num-samples 10
+
+# 多模态空间可视化
+python visualization/visualize_multi_modal_space.py
 ```
 
 ## 配置说明
@@ -157,7 +207,53 @@ config.epochs = 20
 - 因果效应估计
 - 多重损失优化
 
+## 可视化模块
+
+项目提供强大的可视化工具，用于分析多模态模型的因果推断过程：
+
+### 功能特性
+
+1. **因果链可视化** (`causal_visualizer.py`)
+   - 特征分解可视化（原始编码、Shared、Private）
+   - 前门准则验证（完全中介、无混杂检验）
+   - 因果效应计算
+
+2. **单样本分析** (`example.py`)
+   - 命令行工具
+   - 支持自定义图像和文本
+   - 生成可视化报告
+
+3. **批量处理** (`batch_visualize.py`)
+   - 批量样本分析
+   - 统计结果汇总
+
+4. **多模态空间可视化** (`visualize_multi_modal_space.py`)
+   - 高维特征空间降维展示
+   - 聚类分析
+   - 相似度分布
+
+### 使用示例
+
+```python
+from visualization import CausalChainVisualizer
+
+# 初始化可视化器
+visualizer = CausalChainVisualizer(
+    clip_model_path='results/clipmodel/best_model.pt',
+    frontdoor_model_path='results/frontdoormodel/best_model.pt'
+)
+
+# 可视化单样本
+results = visualizer.visualize_single_sample(
+    image_path='data/mscoco_captions/images/000000000009.jpg',
+    text='A group of people dancing in a party',
+    save_path='causal_chain_visualization.png'
+)
+```
+
 ## 添加新模型
+
+项目提供了 `template/` 目录作为新模型的实现模板：
 
 ### 实现步骤
 
@@ -185,6 +281,13 @@ def train(config=None):
 # 4. 更新 models/__init__.py
 from . import your_model
 ```
+
+### 模板文件
+
+- `models/template/config.py` - 配置类模板
+- `models/template/model.py` - 模型定义模板
+- `models/template/train.py` - 训练脚本模板
+- `models/template/evaluate.py` - 评估脚本模板
 
 ## 命令行参数
 
@@ -226,6 +329,19 @@ from . import your_model
 - [QUICKSTART.md](QUICKSTART.md) - 快速开始指南
 - [ARCHITECTURE.md](ARCHITECTURE.md) - 架构详细说明
 - [INDEX.md](INDEX.md) - 文件索引
+- [visualization/README.md](visualization/README.md) - 可视化模块文档
+
+## 项目结构检查
+
+使用项目提供的工具检查结构：
+
+```bash
+# 检查项目结构完整性
+python check_structure.py
+
+# 测试模块导入
+python test_imports.py
+```
 
 ## 许可证
 

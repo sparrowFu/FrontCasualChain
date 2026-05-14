@@ -34,6 +34,7 @@
 | 文件 | 说明 |
 |------|------|
 | [__init__.py](common/__init__.py) | 模块导出 |
+| [config.ini](common/config.ini) | 基础配置文件 |
 | [config.py](common/config.py) | 基础配置类 BaseConfig |
 | [dataset.py](common/dataset.py) | MSCOCO 数据集类和加载函数 |
 | [metrics.py](common/metrics.py) | 评估指标工具 AvgMeter, get_lr |
@@ -92,6 +93,20 @@ FrontDoor 因果链模型实现。
 - 对比损失 (contrastive_loss)
 - 重建损失 (reconstruction_loss)
 
+### models/template/
+
+新模型实现模板。
+
+| 文件 | 说明 |
+|------|------|
+| [__init__.py](models/template/__init__.py) | 模块导出 |
+| [config.py](models/template/config.py) | 模板配置类 |
+| [model.py](models/template/model.py) | 模板模型定义 |
+| [train.py](models/template/train.py) | 模板训练脚本 |
+| [evaluate.py](models/template/evaluate.py) | 模板评估脚本 |
+
+用于快速创建新模型的参考模板。
+
 ## data/ 目录
 
 数据集存储目录。
@@ -146,43 +161,82 @@ results/
     └── checkpoint.pt          # 训练检查点
 ```
 
+## visualization/ 目录
+
+可视化分析模块。
+
+| 文件 | 说明 |
+|------|------|
+| [__init__.py](visualization/__init__.py) | 模块导出 |
+| [causal_visualizer.py](visualization/causal_visualizer.py) | 因果链可视化核心类 |
+| [example.py](visualization/example.py) | 单样本可视化示例 |
+| [batch_visualize.py](visualization/batch_visualize.py) | 批量可视化脚本 |
+| [visualize_multi_modal_space.py](visualization/visualize_multi_modal_space.py) | 多模态空间可视化 |
+| [README.md](visualization/README.md) | 可视化模块文档 |
+
+**核心类**:
+- `CausalChainVisualizer`: 因果链可视化器
+  - 特征分解可视化
+  - 前门准则验证
+  - 因果效应计算
+
+## scripts/ 目录
+
+辅助脚本目录（当前为空，预留用于自定义脚本）。
+
 ## 文件统计
 
 | 类型 | 数量 |
 |------|------|
-| Python 文件 | 20+ |
-| Markdown 文档 | 4 |
-| 模块 | 2 (clip, frontdoor) |
+| Python 文件 | 30+ |
+| Markdown 文档 | 5 |
+| 模块 | 3 (clip, frontdoor, template) |
+| 可视化工具 | 4 |
 | 支持的数据集 | 1 (mscoco_captions) |
 
 ## 依赖关系图
 
 ```
-train.py
+train.py / evaluate.py
     ├── models.frontdoor
     │   ├── common.config
     │   ├── common.dataset
     │   ├── common.training
     │   ├── models.clip (编码器)
     │   └── common.metrics
-    └── models.clip
-        ├── common.config
-        ├── common.dataset
-        ├── common.training
-        └── common.metrics
+    ├── models.clip
+    │   ├── common.config
+    │   ├── common.dataset
+    │   ├── common.training
+    │   └── common.metrics
+    ├── models.template
+    │   ├── common.config
+    │   ├── common.dataset
+    │   └── common.training
+    └── visualization
+        ├── models.frontdoor
+        ├── models.clip
+        └── matplotlib, seaborn, sklearn
 ```
 
 ## 快速导航
 
 ### 添加新模型
-1. 参考 `models/clip/` 或 `models/frontdoor/`
-2. 创建新的模型目录
-3. 实现配置、模型、训练和评估脚本
-4. 更新 `models/__init__.py`
+1. 参考 `models/template/` 模板
+2. 或参考 `models/clip/` 和 `models/frontdoor/`
+3. 创建新的模型目录
+4. 实现配置、模型、训练和评估脚本
+5. 更新 `models/__init__.py`
 
 ### 修改训练配置
 1. 修改 `models/*/config.py` 中的模型配置
 2. 或修改 `common/config.py` 中的基础配置
+3. 或编辑 `common/config.ini` 配置文件
+
+### 可视化分析
+1. 单样本分析: `visualization/example.py`
+2. 批量分析: `visualization/batch_visualize.py`
+3. 空间可视化: `visualization/visualize_multi_modal_space.py`
 
 ### 运行训练
 ```bash

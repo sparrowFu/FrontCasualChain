@@ -77,6 +77,24 @@ python evaluate.py --model clip --query "a beautiful sunset"
 python evaluate.py --model frontdoor --num-samples 100
 ```
 
+### 可视化分析
+
+```bash
+# 单样本因果链可视化
+python visualization/example.py \
+    --image data/mscoco_captions/images/000000000009.jpg \
+    --text "A group of people dancing in a party" \
+    --save causal_viz.png
+
+# 批量可视化
+python visualization/batch_visualize.py \
+    --num-samples 10 \
+    --output-dir results/visualizations
+
+# 多模态空间可视化
+python visualization/visualize_multi_modal_space.py
+```
+
 ## 命令行参数说明
 
 ### train.py
@@ -89,6 +107,25 @@ python evaluate.py --model frontdoor --num-samples 100
 | `--lr` | 学习率 (仅 frontdoor) | 1e-5 |
 | `--debug` | 启用调试模式 | False |
 | `--no-resume` | 不从 checkpoint 恢复 | False |
+
+### evaluate.py
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--model` | 模型选择 (clip/frontdoor) | clip |
+| `--query` | 查询文本（CLIP） | "a group of people..." |
+| `--num-samples` | 评估样本数（FrontDoor） | 100 |
+
+### visualization/example.py
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--image` | 图像路径（必需） | - |
+| `--text` | 文本描述 | "A group of people..." |
+| `--clip-model` | CLIP 模型路径 | auto |
+| `--frontdoor-model` | FrontDoor 模型路径 | auto |
+| `--save` | 保存路径 | 不保存 |
+| `--device` | 设备选择 | auto |
 
 示例：
 
@@ -164,6 +201,20 @@ python train.py --model clip --debug
 
 ```python
 project_root = "D:\\code\\causality\\FrontdoorCausalChain"
+```
+
+### Q6: 如何进行可视化分析？
+
+**A:** 使用可视化模块：
+
+```bash
+# 单样本分析
+python visualization/example.py \
+    --image data/mscoco_captions/images/000000000009.jpg \
+    --text "A group of people dancing in a party"
+
+# 批量分析
+python visualization/batch_visualize.py --num-samples 10
 ```
 
 ## 模型输出

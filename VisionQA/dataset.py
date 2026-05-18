@@ -123,7 +123,8 @@ class VQADataset(Dataset):
         tokenizer: DistilBertTokenizer,
         transforms,
         image_path: str,
-        filtered: bool = False
+        filtered: bool = False,
+        external_answer2idx: Optional[Dict] = None
     ):
         """
         Args:
@@ -132,6 +133,7 @@ class VQADataset(Dataset):
             transforms: 图像变换
             image_path: 图像目录路径
             filtered: 是否使用过滤后的数据（测试集）
+            external_answer2idx: 外部的答案到索引映射（用于测试集使用训练集词汇表）
         """
         self.data_dir = data_dir
         self.image_path = image_path
@@ -151,15 +153,31 @@ class VQADataset(Dataset):
             f"数据文件长度不一致: ids={len(self.img_ids)}, questions={len(self.questions)}, answers={len(self.answers)}, types={len(self.types)}, filenames={len(self.img_filenames)}"
 
         # 构建答案到索引的映射
-        self.answer2idx = {}
-        self.idx2answer = []
-        self.answer_indices = []
+        # 如果提供了外部词汇表（如训练集），使用它；否则构建自己的
+        if external_answer2idx is not None:
+            self.answer2idx = external_answer2idx
+            # 构建 idx2answer
+            self.idx2answer = [None] * len(self.answer2idx)
+            for answer, idx in self.answer2idx.items():
+                self.idx2answer[idx] = answer
+        else:
+            self.answer2idx = {}
+            self.idx2answer = []
+            for answer in self.answers:
+                if answer not in self.answer2idx:
+                    self.answer2idx[answer] = len(self.idx2answer)
+                    self.idx2answer.append(answer)
 
+        # 使用词汇表映射答案索引（处理测试集中出现训练集没有的答案）
+        self.answer_indices = []
+        self.unknown_answers = set()
         for answer in self.answers:
-            if answer not in self.answer2idx:
-                self.answer2idx[answer] = len(self.idx2answer)
-                self.idx2answer.append(answer)
-            self.answer_indices.append(self.answer2idx[answer])
+            if answer in self.answer2idx:
+                self.answer_indices.append(self.answer2idx[answer])
+            else:
+                # 测试集中的答案不在训练集词汇表中，使用 0 作为默认值
+                self.answer_indices.append(0)
+                self.unknown_answers.add(answer)
 
         self.num_answers = len(self.idx2answer)
 
@@ -263,14 +281,15 @@ def build_vqa_loaders(
         shuffle=True,
     )
 
-    # 测试集（使用过滤后的文件）
+    # 测试集（使用过滤后的文件，并使用训练集的答案词汇表）
     test_transforms = get_vqa_transforms(mode="test", size=config.size)
     test_dataset = VQADataset(
         data_dir=test_dir,
         tokenizer=tokenizer,
         transforms=test_transforms,
         image_path=image_path,
-        filtered=True
+        filtered=True,
+        external_answer2idx=train_dataset.answer2idx  # 使用训练集的答案词汇表
     )
 
     test_loader = torch.utils.data.DataLoader(

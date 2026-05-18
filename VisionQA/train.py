@@ -28,7 +28,8 @@ class VQATrainer:
         train_loader: DataLoader,
         test_loader: DataLoader,
         config: VQAConfig,
-        device: torch.device
+        device: torch.device,
+        resume_path: str = None
     ):
         """
         Args:
@@ -37,6 +38,7 @@ class VQATrainer:
             test_loader: 测试数据加载器
             config: 配置对象
             device: 设备
+            resume_path: 恢复训练的检查点路径
         """
         self.model = model
         self.train_loader = train_loader
@@ -61,6 +63,11 @@ class VQATrainer:
         )
 
         self.best_loss = float('inf')
+        self.start_epoch = 1
+
+        # 如果指定了恢复路径，加载检查点
+        if resume_path and os.path.exists(resume_path):
+            self.load_checkpoint(resume_path)
 
     def train_epoch(self, epoch: int) -> float:
         """训练一个 epoch"""
@@ -156,10 +163,10 @@ class VQATrainer:
         print(f"训练样本: {len(self.train_loader.dataset)}")
         print(f"测试样本: {len(self.test_loader.dataset)}")
         print(f"设备: {self.device}")
-        print(f"训练轮数: {num_epochs}")
+        print(f"训练轮数: {self.start_epoch}-{num_epochs}")
         print("=" * 60)
 
-        for epoch in range(1, num_epochs + 1):
+        for epoch in range(self.start_epoch, num_epochs + 1):
             print(f"\n--- Epoch {epoch}/{num_epochs} ---")
 
             # 训练
@@ -179,20 +186,62 @@ class VQATrainer:
             # 保存最佳模型
             if val_loss < self.best_loss:
                 self.best_loss = val_loss
-                self.save_model(self.config.vqa_save_path)
+                self.save_model(self.config.vqa_save_path, epoch=epoch)
                 print(f"保存最佳模型 (loss: {val_loss:.4f})")
 
         print("\n训练完成!")
         print(f"最佳验证损失: {self.best_loss:.4f}")
 
-    def save_model(self, path: str):
-        """保存模型"""
+    def save_model(self, path: str, epoch: int = None):
+        """
+        保存模型检查点
+
+        Args:
+            path: 保存路径
+            epoch: 当前训练轮数
+        """
         os.makedirs(os.path.dirname(path), exist_ok=True)
         torch.save({
+            'epoch': epoch,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
+            'scheduler_state_dict': self.scheduler.state_dict(),
             'best_loss': self.best_loss
         }, path)
+
+    def load_checkpoint(self, path: str):
+        """
+        从检查点恢复训练
+
+        Args:
+            path: 检查点路径
+        """
+        print(f"从检查点恢复训练: {path}")
+        checkpoint = torch.load(path, map_location=self.device, weights_only=False)
+
+        # 加载模型状态
+        if 'model_state_dict' in checkpoint:
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+
+        # 加载优化器状态
+        if 'optimizer_state_dict' in checkpoint:
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+        # 加载调度器状态
+        if 'scheduler_state_dict' in checkpoint:
+            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+
+        # 恢复训练状态
+        if 'best_loss' in checkpoint:
+            self.best_loss = checkpoint['best_loss']
+
+        if 'epoch' in checkpoint:
+            self.start_epoch = checkpoint['epoch'] + 1
+            print(f"从第 {checkpoint['epoch']} 轮继续训练")
+        else:
+            self.start_epoch = 1
+
+        print(f"当前最佳损失: {self.best_loss:.4f}")
 
 
 def train_clip_vqa(args):
@@ -225,20 +274,40 @@ def train_clip_vqa(args):
     num_answers = train_dataset.get_answer_vocab_size()
     print(f"答案词汇表大小: {num_answers}")
 
-    # 加载预训练模型
-    model = load_clip_vqa_model(
-        clip_model_path=config.clip_model_path,
-        num_answers=num_answers,
-        device=device
-    )
+    # 确定加载路径
+    if args.resume:
+        # 从已保存的 VQA 模型继续训练 - 直接加载完整模型
+        print(f"从已保存的模型继续训练: {args.resume}")
+        checkpoint = torch.load(args.resume, map_location=device, weights_only=False)
+        # 首先需要加载预训练的 CLIP 模型
+        model = load_clip_vqa_model(
+            clip_model_path=config.clip_model_path,
+            num_answers=num_answers,
+            device=device
+        )
+        # 然后加载完整的 VQA 模型权重
+        if 'model_state_dict' in checkpoint:
+            model.load_state_dict(checkpoint['model_state_dict'])
+        else:
+            model.load_state_dict(checkpoint)
+        print(f"已加载完整 VQA 模型权重")
+    else:
+        # 从预训练模型开始
+        model = load_clip_vqa_model(
+            clip_model_path=config.clip_model_path,
+            num_answers=num_answers,
+            device=device
+        )
 
     # 创建训练器
+    resume_path = args.resume if args.resume else None
     trainer = VQATrainer(
         model=model,
         train_loader=train_loader,
         test_loader=test_loader,
         config=config,
-        device=device
+        device=device,
+        resume_path=resume_path
     )
 
     # 训练
@@ -275,20 +344,40 @@ def train_frontdoor_vqa(args):
     num_answers = train_dataset.get_answer_vocab_size()
     print(f"答案词汇表大小: {num_answers}")
 
-    # 加载预训练模型
-    model = load_frontdoor_vqa_model(
-        frontdoor_model_path=config.frontdoor_model_path,
-        num_answers=num_answers,
-        device=device
-    )
+    # 确定加载路径
+    if args.resume:
+        # 从已保存的 VQA 模型继续训练 - 直接加载完整模型
+        print(f"从已保存的模型继续训练: {args.resume}")
+        checkpoint = torch.load(args.resume, map_location=device, weights_only=False)
+        # 首先需要加载预训练的 FrontDoor 模型
+        model = load_frontdoor_vqa_model(
+            frontdoor_model_path=config.frontdoor_model_path,
+            num_answers=num_answers,
+            device=device
+        )
+        # 然后加载完整的 VQA 模型权重
+        if 'model_state_dict' in checkpoint:
+            model.load_state_dict(checkpoint['model_state_dict'])
+        else:
+            model.load_state_dict(checkpoint)
+        print(f"已加载完整 VQA 模型权重")
+    else:
+        # 从预训练模型开始
+        model = load_frontdoor_vqa_model(
+            frontdoor_model_path=config.frontdoor_model_path,
+            num_answers=num_answers,
+            device=device
+        )
 
     # 创建训练器
+    resume_path = args.resume if args.resume else None
     trainer = VQATrainer(
         model=model,
         train_loader=train_loader,
         test_loader=test_loader,
         config=config,
-        device=device
+        device=device,
+        resume_path=resume_path
     )
 
     # 训练
@@ -304,6 +393,7 @@ def main():
   python VisionQA/train.py --model clip              # 训练 CLIP VQA 模型
   python VisionQA/train.py --model frontdoor         # 训练 FrontDoor VQA 模型
   python VisionQA/train.py --model clip --epochs 10  # 自定义训练轮数
+  python VisionQA/train.py --model clip --resume D:\\code\\causality\\FrontdoorCausalChain\\results\\VisionQA\\clip_vqa_best_model.pt  # 从检查点继续训练
         """
     )
 
@@ -327,6 +417,13 @@ def main():
         type=int,
         default=None,
         help='批大小'
+    )
+
+    parser.add_argument(
+        '--resume',
+        type=str,
+        default=None,
+        help='从检查点继续训练的模型路径'
     )
 
     args = parser.parse_args()

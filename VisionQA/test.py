@@ -88,6 +88,7 @@ class VQAEvaluator:
 
                 # 保存预测结果
                 predictions_list.append({
+                    'img_filename': batch['img_filename'][i],
                     'question': batch['question'][i],
                     'ground_truth': batch['answer'][i],
                     'prediction': self.idx2answer[pred_indices[i].item()],
@@ -161,19 +162,36 @@ class VQAEvaluator:
         """保存评估结果"""
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
-        # 保存简化结果（不包含完整预测列表）
+        # 问题类型名称映射
+        type_names = ['object', 'number', 'color', 'location']
+
+        # 提取所有错误预测样本
+        wrong_predictions = []
+        for p in results['predictions']:
+            if not p['correct']:
+                wrong_predictions.append({
+                    'img_filename': p['img_filename'],
+                    'question_type': type_names[p['type']],
+                    'question': p['question'],
+                    'correct_answer': p['ground_truth'],
+                    'predicted_answer': p['prediction']
+                })
+
+        # 保存结果
         save_data = {
             'loss': results['loss'],
             'accuracy': results['accuracy'],
             'correct': results['correct'],
             'total': results['total'],
-            'type_results': results['type_results']
+            'type_results': results['type_results'],
+            'wrong_predictions': wrong_predictions
         }
 
         with open(save_path, 'w', encoding='utf-8') as f:
             json.dump(save_data, f, indent=2, ensure_ascii=False)
 
         print(f"结果已保存到: {save_path}")
+        print(f"错误样本数: {len(wrong_predictions)}")
 
 
 def test_clip_vqa(args):
@@ -186,7 +204,7 @@ def test_clip_vqa(args):
     print("=" * 60)
 
     # 创建 tokenizer
-    tokenizer = DistilBertTokenizer.from_pretrained(config.text_tokenizer)
+    tokenizer = DistilBertTokenizer.from_pretrained(config.text_model_path)
 
     # 构建数据加载器
     train_loader, test_loader, train_dataset = build_vqa_loaders(
@@ -226,7 +244,7 @@ def test_clip_vqa(args):
     ).to(device)
 
     # 加载微调后的权重
-    vqa_checkpoint = torch.load(model_path, map_location=device)
+    vqa_checkpoint = torch.load(model_path, map_location=device, weights_only=False)
     if isinstance(vqa_checkpoint, dict) and 'model_state_dict' in vqa_checkpoint:
         model.load_state_dict(vqa_checkpoint['model_state_dict'])
     else:
@@ -255,7 +273,7 @@ def test_frontdoor_vqa(args):
     print("=" * 60)
 
     # 创建 tokenizer
-    tokenizer = DistilBertTokenizer.from_pretrained(config.text_tokenizer)
+    tokenizer = DistilBertTokenizer.from_pretrained(config.text_model_path)
 
     # 构建数据加载器
     train_loader, test_loader, train_dataset = build_vqa_loaders(
@@ -294,11 +312,18 @@ def test_frontdoor_vqa(args):
     )
     frontdoor_model = FrontDoorWithEncoders(image_encoder, text_encoder, causal_model)
 
-    fd_checkpoint = torch.load(config.frontdoor_model_path, map_location=device, weights_only=True)
+    fd_checkpoint = torch.load(config.frontdoor_model_path, map_location=device, weights_only=False)
     if isinstance(fd_checkpoint, dict) and 'model_state_dict' in fd_checkpoint:
-        frontdoor_model.load_state_dict(fd_checkpoint['model_state_dict'])
+        state_dict = fd_checkpoint['model_state_dict']
     else:
-        frontdoor_model.load_state_dict(fd_checkpoint)
+        state_dict = fd_checkpoint
+
+    # 如果 state_dict 的键没有 'causal_model.' 前缀，添加它
+    if not any(k.startswith('causal_model.') for k in state_dict.keys()):
+        state_dict = {f'causal_model.{k}': v for k, v in state_dict.items()}
+
+    # 使用 strict=False 因为 checkpoint 可能不包含 image_encoder 和 text_encoder 的权重
+    frontdoor_model.load_state_dict(state_dict, strict=False)
     frontdoor_model = frontdoor_model.to(device)
 
     # 创建 VQA 模型
@@ -308,7 +333,7 @@ def test_frontdoor_vqa(args):
     ).to(device)
 
     # 加载微调后的权重
-    vqa_checkpoint = torch.load(model_path, map_location=device)
+    vqa_checkpoint = torch.load(model_path, map_location=device, weights_only=False)
     if isinstance(vqa_checkpoint, dict) and 'model_state_dict' in vqa_checkpoint:
         model.load_state_dict(vqa_checkpoint['model_state_dict'])
     else:

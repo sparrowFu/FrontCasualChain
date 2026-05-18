@@ -276,7 +276,7 @@ def load_clip_vqa_model(
         CLIPVQAModel 实例
     """
     # 加载预训练的 CLIP 模型
-    checkpoint = torch.load(clip_model_path, map_location=device)
+    checkpoint = torch.load(clip_model_path, map_location=device, weights_only=True)
 
     # 重建 CLIP 模型
     from models.clip.model import CLIPModel
@@ -322,7 +322,7 @@ def load_frontdoor_vqa_model(
         FrontDoorVQAModel 实例
     """
     # 加载预训练的 FrontDoor 模型
-    checkpoint = torch.load(frontdoor_model_path, map_location=device)
+    checkpoint = torch.load(frontdoor_model_path, map_location=device, weights_only=False)
 
     # 重建 FrontDoor 模型
     from models.frontdoor.model import FrontDoorCausalModel, FrontDoorWithEncoders
@@ -352,9 +352,17 @@ def load_frontdoor_vqa_model(
 
     # 加载权重
     if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
-        frontdoor_model.load_state_dict(checkpoint['model_state_dict'])
+        state_dict = checkpoint['model_state_dict']
     else:
-        frontdoor_model.load_state_dict(checkpoint)
+        state_dict = checkpoint
+
+    # 如果 state_dict 的键没有 'causal_model.' 前缀，添加它
+    # 这是因为训练时只保存了 causal_model.state_dict()
+    if not any(k.startswith('causal_model.') for k in state_dict.keys()):
+        state_dict = {f'causal_model.{k}': v for k, v in state_dict.items()}
+
+    # 使用 strict=False 因为 checkpoint 可能不包含 image_encoder 和 text_encoder 的权重
+    frontdoor_model.load_state_dict(state_dict, strict=False)
 
     frontdoor_model = frontdoor_model.to(device)
 

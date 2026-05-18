@@ -6,7 +6,8 @@ import torch
 import cv2
 from torch.utils.data import Dataset
 from transformers import DistilBertTokenizer
-from albumentations import A
+import albumentations as A
+# from albumentations import A
 from typing import Optional, List, Dict
 from .config import VQAConfig
 

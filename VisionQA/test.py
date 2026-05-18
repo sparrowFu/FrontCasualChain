@@ -211,7 +211,7 @@ def test_clip_vqa(args):
 
     # 加载预训练的 CLIP 模型
     from models.clip.model import CLIPModel
-    clip_checkpoint = torch.load(config.clip_model_path, map_location=device)
+    clip_checkpoint = torch.load(config.clip_model_path, map_location=device, weights_only=True)
     clip_model = CLIPModel()
     if isinstance(clip_checkpoint, dict) and 'model_state_dict' in clip_checkpoint:
         clip_model.load_state_dict(clip_checkpoint['model_state_dict'])
@@ -294,7 +294,7 @@ def test_frontdoor_vqa(args):
     )
     frontdoor_model = FrontDoorWithEncoders(image_encoder, text_encoder, causal_model)
 
-    fd_checkpoint = torch.load(config.frontdoor_model_path, map_location=device)
+    fd_checkpoint = torch.load(config.frontdoor_model_path, map_location=device, weights_only=True)
     if isinstance(fd_checkpoint, dict) and 'model_state_dict' in fd_checkpoint:
         frontdoor_model.load_state_dict(fd_checkpoint['model_state_dict'])
     else:

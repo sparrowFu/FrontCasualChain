@@ -211,7 +211,7 @@ def train_clip_vqa(args):
     print("=" * 60)
 
     # 创建 tokenizer
-    tokenizer = DistilBertTokenizer.from_pretrained(config.text_tokenizer)
+    tokenizer = DistilBertTokenizer.from_pretrained(config.text_model_path)
 
     # 构建数据加载器
     train_loader, test_loader, train_dataset = build_vqa_loaders(
@@ -261,7 +261,7 @@ def train_frontdoor_vqa(args):
     print("=" * 60)
 
     # 创建 tokenizer
-    tokenizer = DistilBertTokenizer.from_pretrained(config.text_tokenizer)
+    tokenizer = DistilBertTokenizer.from_pretrained(config.text_model_path)
 
     # 构建数据加载器
     train_loader, test_loader, train_dataset = build_vqa_loaders(

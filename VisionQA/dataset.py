@@ -49,12 +49,9 @@ def read_vqa_file(file_path: str) -> List[str]:
                 if len(parts) == 2:
                     data.append(parts[1])
                 else:
-                    # 尝试按空格分割
-                    parts = line.split(maxsplit=1)
-                    if len(parts) == 2:
-                        data.append(parts[1])
-                    else:
-                        data.append(line)
+                    # 如果没有制表符分隔符，直接使用整行
+                    # 不再尝试按空格分割，因为问题本身可能包含空格
+                    data.append(line)
     return data
 
 
@@ -73,15 +70,13 @@ def read_vqa_ids(file_path: str) -> List[int]:
         for line in f:
             line = line.strip()
             if line:
+                # 分割序号和内容
                 parts = line.split('\t')
                 if len(parts) == 2:
                     ids.append(int(parts[1]))
                 else:
-                    parts = line.split()
-                    if len(parts) == 2:
-                        ids.append(int(parts[1]))
-                    else:
-                        ids.append(int(line))
+                    # 如果没有制表符分隔符，直接将整行转换为整数
+                    ids.append(int(line))
     return ids
 
 
@@ -100,15 +95,13 @@ def read_vqa_types(file_path: str) -> List[int]:
         for line in f:
             line = line.strip()
             if line:
+                # 分割序号和内容
                 parts = line.split('\t')
                 if len(parts) == 2:
                     types.append(int(parts[1]))
                 else:
-                    parts = line.split()
-                    if len(parts) == 2:
-                        types.append(int(parts[1]))
-                    else:
-                        types.append(int(line))
+                    # 如果没有制表符分隔符，直接将整行转换为整数
+                    types.append(int(line))
     return types
 
 

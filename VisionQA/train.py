@@ -279,6 +279,13 @@ def train_clip_vqa(args):
         # 从已保存的 VQA 模型继续训练 - 直接加载完整模型
         print(f"从已保存的模型继续训练: {args.resume}")
         checkpoint = torch.load(args.resume, map_location=device, weights_only=False)
+
+        # 如果 resume 时没有指定 epochs，默认再训练 5 个 epoch
+        if not args.epochs:
+            config.epochs = 5
+            print(f"恢复训练：将再训练 {config.epochs} 个 epoch")
+            print(f"提示：使用 --epochs 参数可以指定训练轮数")
+
         # 首先需要加载预训练的 CLIP 模型
         model = load_clip_vqa_model(
             clip_model_path=config.clip_model_path,
@@ -349,6 +356,13 @@ def train_frontdoor_vqa(args):
         # 从已保存的 VQA 模型继续训练 - 直接加载完整模型
         print(f"从已保存的模型继续训练: {args.resume}")
         checkpoint = torch.load(args.resume, map_location=device, weights_only=False)
+
+        # 如果 resume 时没有指定 epochs，默认再训练 5 个 epoch
+        if not args.epochs:
+            config.epochs = 5
+            print(f"恢复训练：将再训练 {config.epochs} 个 epoch")
+            print(f"提示：使用 --epochs 参数可以指定训练轮数")
+
         # 首先需要加载预训练的 FrontDoor 模型
         model = load_frontdoor_vqa_model(
             frontdoor_model_path=config.frontdoor_model_path,
@@ -393,7 +407,8 @@ def main():
   python VisionQA/train.py --model clip              # 训练 CLIP VQA 模型
   python VisionQA/train.py --model frontdoor         # 训练 FrontDoor VQA 模型
   python VisionQA/train.py --model clip --epochs 10  # 自定义训练轮数
-  python VisionQA/train.py --model clip --resume D:\\code\\causality\\FrontdoorCausalChain\\results\\VisionQA\\clip_vqa_best_model.pt  # 从检查点继续训练
+  python VisionQA/train.py --model clip --resume D:\\code\\causality\\FrontdoorCausalChain\\results\\VisionQA\\clip_vqa_best_model.pt              # 从检查点继续训练（默认再训练 5 个 epoch）
+  python VisionQA/train.py --model clip --resume D:\\code\\causality\\FrontdoorCausalChain\\results\\VisionQA\\clip_vqa_best_model.pt --epochs 10  # 从检查点继续训练并指定 10 个 epoch
         """
     )
 
